@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <script type="module">
+        import * as THREE from 'three';
+        import parkingTextureURL from "./assets/parking-texture.png";
+
+        const scene = new THREE.Scene();
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        // materials
+        const tl = new THREE.TextureLoader();
+        const parkingTexture = tl.load(parkingTextureURL);
+        parkingTexture.wrapS = THREE.RepeatWrapping;
+        parkingTexture.wrapT = THREE.RepeatWrapping;
+        parkingTexture.repeat.set(4, 4);
+        const parkingMaterial = new THREE.MeshStandardMaterial({ map: parkingTexture });
+
+        const groundGeo = new THREE.BoxGeometry(50, 50, 0.05);
+        const green = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+        const ground = new THREE.Mesh(groundGeo, parkingMaterial );
+        scene.add(ground);
+
+        const playerMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+
+        // ライト
+        const light = new THREE.DirectionalLight(0xffffff, 100);
+        light.position.set(5, 7, 10)
+        scene.add(light);
+
+        // 世界ヴァロ
+        const gravity = -0.1;
+        const groundY = 0;
+
+        class Player {
+            constructor(x, y, z, mat) {
+                this.movement = {
+                    forward: false,
+                    backward: false,
+                    left: false,
+                    right: false,
+                    rotateL: false,
+                    rotateR: false,
+                }
+
+                this.dx = 0;
+                this.dy = 0;
+                this.dz = 0;
+                this.speed = 0.2;
+                this.rotationSpeed = 0.1;
+                this.geo = new THREE.BoxGeometry(1, 1, 5);
+                this.mesh = new THREE.Mesh(this.geo, mat);
+                this.mesh.position.set(x, y, z);
+                scene.add(this.mesh);
+
+                this.mesh.add(camera);
+                this.mesh.position.z = 1;
+                camera.position.set(this.mesh.position.x, this.mesh.position.y, this.mesh.position.z+0.01);
+                camera.rotation.x = Math.PI/2;
+            }
+
+            update() {
+                //this.mesh.position.x += this.dx;
+                //this.mesh.position.y += this.dy;
+                this.dz += gravity;
+                this.mesh.position.z += this.dz;
+                this.mesh.translateX(this.dx);
+                this.mesh.translateY(this.dy);
+
+
+                // key inputs
+                if (this.movement.forward) {
+                    this.dy = this.speed;
+                }
+                if (this.movement.backward) {
+                    this.dy = -this.speed;
+                }
+                if (this.movement.left) {
+                    this.dx = -this.speed;
+                }
+                if (this.movement.right) {
+                    this.dx = this.speed;
+                }
+                if (!this.movement.right && !this.movement.left) {
+                    this.dx = 0;
+                }
+                if (!this.movement.forward && !this.movement.backward) {
+                    this.dy = 0;
+                }
+
+                // rotation key input
+                if (this.movement.rotateL) {
+                    this.mesh.rotation.z += this.rotationSpeed;
+                }
+                if (this.movement.rotateR) {
+                    this.mesh.rotation.z -= this.rotationSpeed;
+                }
+
+                // ground check
+                if (this.mesh.position.z <= groundY + 10) {
+                    this.mesh.position.z = groundY + 10;
+                    this.dz = 0;
+                }
+            }
+        }
+
+        const player = new Player(0, 0, 10, playerMat);
+
+
+        document.addEventListener("keydown", (e) => {
+            switch (e.key) {
+                case "w":
+                    player.movement.forward = true;
+                    break;
+                case "s":
+                    player.movement.backward = true;
+                    break;
+                case "a":
+                    player.movement.left = true;
+                    break;
+                case "d":
+                    player.movement.right = true;
+                    break;
+                case "ArrowLeft":
+                    player.movement.rotateL = true;
+                    break;
+                case "ArrowRight":
+                    player.movement.rotateR = true;
+                    break;
+
+            }
+        });
+
+        document.addEventListener("keyup", (e) => {
+            switch (event.key) {
+                case "w":
+                    player.movement.forward = false;
+                    break;
+                case "s":
+                    player.movement.backward = false;
+                    break;
+                case "a":
+                    player.movement.left = false;
+                    break;
+                case "d":
+                    player.movement.right = false;
+                    break;
+                case "ArrowLeft":
+                    player.movement.rotateL = false;
+                    break;
+                case "ArrowRight":
+                    player.movement.rotateR = false;
+                    break;
+
+            }
+        });
+
+        function animate() {
+            player.update();
+
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+    </script>
+</body>
+
+</html>
