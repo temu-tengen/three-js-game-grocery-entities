@@ -13,16 +13,47 @@
 
         canvas {
             display: block;
+            position: fixed;
+            z-index: -10;
+        }
+
+        #ui {
+            position: absolute;
+            /* 位置固定を有効にする */
+            top: 10px;
+            /* 画面上部からの余白 */
+            left: 10px;
+            /* 画面左側からの余白 */
+            z-index: 10;
+            /* Canvasより手前に出す */
+            color: white;
+            /* 背景が暗い場合に見えやすくする（任意） */
+            font-family: sans-serif;
+            /* フォント（任意） */
+            font-size: 24px;
+            /* 文字サイズ（任意） */
+            font-weight: bolder;
         }
     </style>
 </head>
 
 <body>
+    <div id="ui">
+        <p id="timeDisp">Minutes</p>
+        <p id="daysDisp">Days</p>
+    </div>
     <script type="module">
         import * as THREE from 'three';
-        import parkingTextureURL from "./assets/parking-texture.png";
+        import parkingTextureURL from "./images/parking-texture.png";
+        import skyURL from "./images/sky.png";
+        import brickTextureURL from "./images/brick.png";
+        import lightBrickURL from "./images/light-brick.png";
+
+        const clock = new THREE.Clock();
 
         const scene = new THREE.Scene();
+        const timeDisp = document.getElementById("timeDisp");
+        const daysDisp = document.getElementById("daysDisp");
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
@@ -34,20 +65,41 @@
         const parkingTexture = tl.load(parkingTextureURL);
         parkingTexture.wrapS = THREE.RepeatWrapping;
         parkingTexture.wrapT = THREE.RepeatWrapping;
-        parkingTexture.repeat.set(4, 4);
-        const parkingMaterial = new THREE.MeshStandardMaterial({ map: parkingTexture });
+        parkingTexture.repeat.set(40, 40);
+        const parkingMaterial = new THREE.MeshStandardMaterial({ map: parkingTexture, roughness: 0.5 });
+        // // sky
+        const skyTexture = tl.load(skyURL);
+        // // brick
+        const brickTexture = tl.load(brickTextureURL);
+        brickTexture.wrapS = THREE.RepeatWrapping;
+        brickTexture.wrapT = THREE.RepeatWrapping;
+        brickTexture.repeat.set(4, 4);
+        const brickMat = new THREE.MeshStandardMaterial({ map: brickTexture, roughness: 1 });
 
-        const groundGeo = new THREE.BoxGeometry(50, 50, 0.05);
+        const lightBrickTexture = tl.load(lightBrickURL);
+        lightBrickTexture.wrapS = THREE.RepeatWrapping;
+        lightBrickTexture.wrapT = THREE.RepeatWrapping;
+        lightBrickTexture.repeat.set(4, 4);
+        const lightBrickMat = new THREE.MeshStandardMaterial({ map: lightBrickTexture, roughness: 1 });
+
+        scene.background = skyTexture;
+        const groundGeo = new THREE.BoxGeometry(1000, 1000, 0.05);
         const green = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-        const ground = new THREE.Mesh(groundGeo, parkingMaterial );
+        const ground = new THREE.Mesh(groundGeo, parkingMaterial);
         scene.add(ground);
 
         const playerMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
 
         // ライト
-        const light = new THREE.DirectionalLight(0xffffff, 100);
-        light.position.set(5, 7, 10)
+        const light = new THREE.DirectionalLight(0xffffff, 0.2);
+        light.position.set(0, 7, 5)
         scene.add(light);
+        const ambientLight = new THREE.AmbientLight(0xffffff);
+        //scene.add(ambientLight);
+
+        const light2 = new THREE.DirectionalLight(0xffffff, 1);
+        light2.position.set(0, -7, 10)
+        scene.add(light2);
 
         // 世界ヴァロ
         const gravity = -0.1;
@@ -67,22 +119,22 @@
                 this.dx = 0;
                 this.dy = 0;
                 this.dz = 0;
-                this.speed = 0.2;
+                this.speed = 0.5;
                 this.rotationSpeed = 0.1;
                 this.geo = new THREE.BoxGeometry(1, 1, 5);
                 this.mesh = new THREE.Mesh(this.geo, mat);
                 this.mesh.position.set(x, y, z);
                 scene.add(this.mesh);
+                this.prevMeshPos = this.mesh.position;
 
                 this.mesh.add(camera);
                 this.mesh.position.z = 1;
-                camera.position.set(this.mesh.position.x, this.mesh.position.y, this.mesh.position.z+0.01);
-                camera.rotation.x = Math.PI/2;
+                camera.position.set(this.mesh.position.x, this.mesh.position.y, this.mesh.position.z + 0.01);
+                camera.rotation.x = Math.PI / 2;
             }
 
             update() {
-                //this.mesh.position.x += this.dx;
-                //this.mesh.position.y += this.dy;
+                this.prevMeshPos = this.mesh.position.clone();
                 this.dz += gravity;
                 this.mesh.position.z += this.dz;
                 this.mesh.translateX(this.dx);
@@ -122,10 +174,63 @@
                     this.mesh.position.z = groundY + 10;
                     this.dz = 0;
                 }
+
             }
         }
 
         const player = new Player(0, 0, 10, playerMat);
+
+        class Node {
+            constructor(name, baseX, baseY) {
+                this.name = name;
+                this.elements = [];
+                this.x = baseX;
+                this.y = baseY;
+            }
+
+            addElement(name, x, y, z, width, length, depth, mat) {
+                const e = new THREE.BoxGeometry(width, length, depth);
+                const m = new THREE.Mesh(e, mat);
+                m.position.set(x, y, z);
+                scene.add(m);
+                this.elements.push({ name: name, mesh: m});
+            }
+
+            activateCollisions() {
+                for (const e of this.elements) {
+                    const eB = new THREE.Box3().setFromObject(e.mesh);
+                    const pB = new THREE.Box3().setFromObject(player.mesh);
+
+                    if (eB.intersectsBox(pB)) {
+                        player.mesh.position.copy(player.prevMeshPos);
+                    }
+                }
+
+
+            }
+
+            getElementByName(name) {
+                for (e of elements) {
+                    if (e.name === name) {
+                        return e;
+                    }
+                }
+            }
+        }
+
+        const building = new Node("building", 100, 100);
+        building.addElement("wall1", -10, 50, 0, 25, 5, 50, brickMat);
+        building.addElement("wall1", 30, 50, 0, 25, 5, 50, brickMat);
+        building.addElement("wall1", 10, 50, 35, 65, 5, 20, brickMat);
+        const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(20, 0.5, 50), new THREE.MeshStandardMaterial({ color: 0xFFFF00 }));
+        scene.add(doorMesh);
+        doorMesh.position.set(10, 50, 0);
+
+        building.addElement("wall2", -40, 52, 0, 50, 2, 95, lightBrickMat);
+        building.addElement("wall2", 50, 52, 0, 50, 2, 95, lightBrickMat);
+        building.addElement("wall3", -60, 127, 0, 2, 150, 95, lightBrickMat);
+        building.addElement("wall4", 75, 127, 0, 2, 150, 95, lightBrickMat);
+        building.addElement("wall5", 5, 200, 0, 135++, 2, 95, lightBrickMat);
 
 
         document.addEventListener("keydown", (e) => {
@@ -152,7 +257,7 @@
             }
         });
 
-        document.addEventListener("keyup", (e) => {
+        document.addEventListener("keyup", (event) => {
             switch (event.key) {
                 case "w":
                     player.movement.forward = false;
@@ -177,7 +282,13 @@
         });
 
         function animate() {
+            const delta = clock.getDelta();
+            const elapsedTime = clock.getElapsedTime();
+            timeDisp.textContent = "Minutes Passed: "+Math.trunc(elapsedTime);
+            const days = elapsedTime/60;
+            daysDisp.textContent = "Hours Passed: " + Math.trunc(days);
             player.update();
+            building.activateCollisions();
 
             requestAnimationFrame(animate);
             renderer.render(scene, camera);
