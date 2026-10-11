@@ -41,6 +41,14 @@
             /* 文字サイズ（任意） */
             font-weight: bolder;
         }
+
+        #file-progress {
+            color: red;
+        }
+
+        #label {
+            color: red;
+        }
     </style>
 </head>
 
@@ -48,16 +56,20 @@
     <div id="ui">
         <p id="timeDisp">Minutes</p>
         <p id="daysDisp">Days</p>
+        <label id="label" for="file-progress">Noise Level: </label>
+        <progress id="file-progress" max="100" value="10"></progress>
     </div>
     <script type="module">
         import * as THREE from 'three';
         import { Text } from 'troika-three-text';
+        import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
         import parkingTextureURL from "./images/parking-texture.png";
         import skyURL from "./images/sky.png";
         import brickTextureURL from "./images/brick.png";
         import lightBrickURL from "./images/light-brick.png";
         import grassURL from "./images/grass.png";
+        const noiseLevel = document.getElementById("file-progress");
 
         const clock = new THREE.Clock();
 
@@ -109,6 +121,20 @@
         grass.position.set(0, 0, -0.05);
         scene.add(grass);
 
+        // GLTF Loading
+        const gloader = new GLTFLoader();
+
+        gloader.load(
+            './models/dumpster_low_poly/scene.gltf',
+            function (gltf) {
+                const model = gltf.scene;
+                scene.add(model);
+                model.position.set(-20, 40, 0);
+                model.rotation.set(Math.PI/2, 0, 0);
+                model.scale.set(5, 5, 5);
+            },
+        );
+
         const playerMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
 
         // ライト
@@ -148,6 +174,7 @@
                     right: false,
                     rotateL: false,
                     rotateR: false,
+                    shiftPressed: false,
                 }
 
                 this.tiltingLeft = false;
@@ -155,7 +182,9 @@
                 this.dx = 0;
                 this.dy = 0;
                 this.dz = 0;
-                this.speed = 0.5;
+                this.walkingSpeed = 0.2;
+                this.runningSpeed = 0.5;
+                this.speed = this.walkingSpeed;
                 this.rotationSpeed = 0.1;
                 this.geo = new THREE.BoxGeometry(1, 1, 5);
                 this.mesh = new THREE.Mesh(this.geo, mat);
@@ -180,6 +209,10 @@
                 // key inputs
                 if (this.movement.forward) {
                     this.dy = this.speed;
+                    noiseLevel.value = "60";
+                    if (this.movement.shiftPressed) {
+                        noiseLevel.value = "90";
+                    }
                     if (this.mesh.rotation.y > -0.05 && this.tiltingLeft == true) {
                         this.mesh.rotation.y -= 0.005;
                         if (this.mesh.rotation.y <= -0.04) {
@@ -194,6 +227,10 @@
                 }
                 if (this.movement.backward) {
                     this.dy = -this.speed;
+                    noiseLevel.value = "60";
+                    if (this.movement.shiftPressed) {
+                        noiseLevel.value = "90";
+                    }
 
                     if (this.mesh.rotation.y > -0.05 && this.tiltingLeft == true) {
                         this.mesh.rotation.y -= 0.005;
@@ -209,15 +246,30 @@
                 }
                 if (this.movement.left) {
                     this.dx = -this.speed;
+                    noiseLevel.value = "55";
+                    if (this.movement.shiftPressed) {
+                        noiseLevel.value = "90";
+                    }
+                    noiseLevel.value = noiseLevel.value + Math.random() * 10;
                 }
                 if (this.movement.right) {
                     this.dx = this.speed;
+                    noiseLevel.value = "55";
+
+                    if (this.movement.shiftPressed) {
+                        noiseLevel.value = "90";
+                    }
+                    noiseLevel.value = noiseLevel.value + Math.random() * 10;
                 }
                 if (!this.movement.right && !this.movement.left) {
                     this.dx = 0;
                 }
                 if (!this.movement.forward && !this.movement.backward) {
                     this.dy = 0;
+                }
+
+                if (!this.movement.right && !this.movement.left && !this.movement.forward && !this.movement.backward) {
+                    noiseLevel.value = Math.random() * 10;
                 }
 
                 // rotation key input
@@ -238,6 +290,25 @@
         }
 
         const player = new Player(0, 0, 10, playerMat);
+
+        class Entity {
+            constructor(x, y, z, mesh) {
+                this.mesh = mesh;
+                this.mesh.position.set(x, y, z);
+                this.speed = 0.1;
+
+                this.dy = 0;
+                this.dx = 0;
+                this.dz = 0;
+            }
+
+            update() {
+                this.dz += gravity;
+                this.mesh.position.z += this.dz;
+                this.mesh.position.x += this, dx;
+                this.mesh.position.y += this.dy;
+            }
+        }
 
         class Node {
             constructor(name, baseX, baseY) {
@@ -318,6 +389,10 @@
                 case "e":
                     ePressed = true;
                     break;
+                case "Shift":
+                    player.speed = player.runningSpeed;
+                    player.movement.shiftPressed = true;
+                    break;
 
             }
         });
@@ -344,6 +419,10 @@
                     break;
                 case "e":
                     ePressed = false;
+                    break;
+                case "Shift":
+                    player.speed = player.walkingSpeed;
+                    player.movement.shiftPressed = false;
                     break;
 
             }
@@ -372,7 +451,7 @@
             const delta = clock.getDelta();
             const elapsedTime = clock.getElapsedTime();
             timeDisp.textContent = "Minutes Passed: " + Math.trunc(elapsedTime);
-            const days = elapsedTime / 5;
+            const days = elapsedTime / 10;
             daysDisp.textContent = "Hours Passed: " + Math.trunc(days);
 
             player.update();
