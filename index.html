@@ -124,6 +124,8 @@
         // GLTF Loading
         const gloader = new GLTFLoader();
 
+        var monsterIsLoaded = false;
+
         gloader.load(
             './models/dumpster_low_poly/scene.gltf',
             function (gltf) {
@@ -135,13 +137,29 @@
             },
         );
 
+        var entityMesh;
+        var monster;
+        gloader.load(
+            './models/smily_horror_monster/scene.gltf',
+            function (gltf) {
+                entityMesh = gltf.scene;
+                scene.add(entityMesh);
+                entityMesh.position.set(-20, 40, 0);
+                entityMesh.rotation.set(Math.PI/2, 0, 0);
+                entityMesh.scale.set(0.2, 0.2, 0.2);
+
+                monster = new Entity(0, -50, 10, entityMesh);
+                monsterIsLoaded = true;
+            },
+        );
+
         const playerMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
 
         // ライト
-        const lightBulb1 = new THREE.PointLight(0xffffff, 60, 1000, 2);
+        const lightBulb1 = new THREE.PointLight(0xffffff, 110, 1000, 2);
         lightBulb1.position.set(10, 150, 40)
         scene.add(lightBulb1);
-        const lightBulb2 = new THREE.PointLight(0xffffff, 60, 1000, 2);
+        const lightBulb2 = new THREE.PointLight(0xffffff, 110, 1000, 2);
         lightBulb2.position.set(10, 80, 40)
         scene.add(lightBulb2);
 
@@ -305,8 +323,52 @@
             update() {
                 this.dz += gravity;
                 this.mesh.position.z += this.dz;
-                this.mesh.position.x += this, dx;
+                this.mesh.position.x += this.dx;
                 this.mesh.position.y += this.dy;
+
+                // ground check
+                if (this.mesh.position.z <= 0) {
+                    this.mesh.position.z = 0;
+                    this.dz = 0;
+                }
+
+                // speed check based on sound
+                if (noiseLevel.value > 85) {
+                    this.speed = 1;
+                } else if (noiseLevel.value > 45) {
+                    this.speed = 0.4;
+                } else if (noiseLevel.value > 10) {
+                    this.speed = 0.2;
+                } else {
+                    this.speed = 0.1;
+                }
+
+                // player tracking
+
+                if (stages.nighttime) {
+
+                    if (player.mesh.position.y > 50 && this.mesh.position.y < 54) {
+                        if (this.mesh.position.x < 15) {
+                            this.mesh.position.x += this.speed;
+                        } else if (this.mesh.position.x > 15) {
+                            this.mesh.position.x -= this.speed;
+                        } else {
+                            if (this.mesh.position.y < 60) {
+                                this.mesh.position.y+= this.speed;
+                            }
+                        }
+                    } else if (this.mesh.position.x < player.mesh.position.x) {
+                        this.mesh.position.x += this.speed;
+                    } else if (this.mesh.position.x > player.mesh.position.x) {
+                        this.mesh.position.x -= this.speed;
+                    }
+                    if (this.mesh.position.y < player.mesh.position.y) {
+                        this.mesh.position.y += this.speed;
+                    } else {
+                        this.mesh.position.y -= this.speed;
+                    }
+                }
+                //this.mesh.lookAt(player.mesh);
             }
         }
 
@@ -455,6 +517,9 @@
             daysDisp.textContent = "Hours Passed: " + Math.trunc(days);
 
             player.update();
+            if (monsterIsLoaded) {
+                monster.update();
+            }
             building.activateCollisions();
 
             // random light flickers
