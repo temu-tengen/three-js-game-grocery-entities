@@ -17,8 +17,16 @@
             z-index: -10;
         }
 
+        @font-face {
+            font-family: 'ScaryFont';
+            src: url('fonts/HelpMe.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
         #ui {
             position: absolute;
+            font-family: 'ScaryFont';
             /* 位置固定を有効にする */
             top: 10px;
             /* 画面上部からの余白 */
@@ -28,7 +36,6 @@
             /* Canvasより手前に出す */
             color: white;
             /* 背景が暗い場合に見えやすくする（任意） */
-            font-family: sans-serif;
             /* フォント（任意） */
             font-size: 24px;
             /* 文字サイズ（任意） */
@@ -44,10 +51,13 @@
     </div>
     <script type="module">
         import * as THREE from 'three';
+        import { Text } from 'troika-three-text';
+
         import parkingTextureURL from "./images/parking-texture.png";
         import skyURL from "./images/sky.png";
         import brickTextureURL from "./images/brick.png";
         import lightBrickURL from "./images/light-brick.png";
+        import grassURL from "./images/grass.png";
 
         const clock = new THREE.Clock();
 
@@ -81,19 +91,34 @@
         lightBrickTexture.wrapT = THREE.RepeatWrapping;
         lightBrickTexture.repeat.set(4, 4);
         const lightBrickMat = new THREE.MeshStandardMaterial({ map: lightBrickTexture, roughness: 1 });
+        // // grass
+        const grassTexture = tl.load(grassURL);
+        grassTexture.wrapT = THREE.RepeatWrapping;
+        grassTexture.wrapS = THREE.RepeatWrapping;
+        grassTexture.repeat.set(30, 30);
+        const grassMat = new THREE.MeshStandardMaterial({ map: grassTexture, roughness: 100 });
 
         scene.background = skyTexture;
-        const groundGeo = new THREE.BoxGeometry(1000, 1000, 0.05);
+
+        const groundGeo = new THREE.BoxGeometry(400, 400, 0.05);
         const green = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
         const ground = new THREE.Mesh(groundGeo, parkingMaterial);
         scene.add(ground);
 
+        const grass = new THREE.Mesh(new THREE.BoxGeometry(1000, 1000, 0.05), grassMat);
+        grass.position.set(0, 0, -0.05);
+        scene.add(grass);
+
         const playerMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
 
         // ライト
-        const light = new THREE.DirectionalLight(0xffffff, 0.2);
-        light.position.set(0, 7, 5)
-        scene.add(light);
+        const lightBulb1 = new THREE.PointLight(0xffffff, 60, 1000, 2);
+        lightBulb1.position.set(10, 150, 40)
+        scene.add(lightBulb1);
+        const lightBulb2 = new THREE.PointLight(0xffffff, 60, 1000, 2);
+        lightBulb2.position.set(10, 80, 40)
+        scene.add(lightBulb2);
+
         const ambientLight = new THREE.AmbientLight(0xffffff);
         //scene.add(ambientLight);
 
@@ -104,7 +129,16 @@
         // 世界ヴァロ
         const gravity = -0.1;
         const groundY = 0;
+        const dayLength = 60;
 
+
+        // key pressed
+        let ePressed = false;
+
+        const stages = {
+            daytime: true,
+            nighttime: false,
+        }
         class Player {
             constructor(x, y, z, mat) {
                 this.movement = {
@@ -115,6 +149,8 @@
                     rotateL: false,
                     rotateR: false,
                 }
+
+                this.tiltingLeft = false;
 
                 this.dx = 0;
                 this.dy = 0;
@@ -144,9 +180,32 @@
                 // key inputs
                 if (this.movement.forward) {
                     this.dy = this.speed;
+                    if (this.mesh.rotation.y > -0.05 && this.tiltingLeft == true) {
+                        this.mesh.rotation.y -= 0.005;
+                        if (this.mesh.rotation.y <= -0.04) {
+                            this.tiltingLeft = false;
+                        }
+                    } else if (this.mesh.rotation.y < 0.05 && !this.tiltingLeft) {
+                        this.mesh.rotation.y += 0.005;
+                        if (this.mesh.rotation.y >= 0.04) {
+                            this.tiltingLeft = true;
+                        }
+                    }
                 }
                 if (this.movement.backward) {
                     this.dy = -this.speed;
+
+                    if (this.mesh.rotation.y > -0.05 && this.tiltingLeft == true) {
+                        this.mesh.rotation.y -= 0.005;
+                        if (this.mesh.rotation.y <= -0.04) {
+                            this.tiltingLeft = false;
+                        }
+                    } else if (this.mesh.rotation.y < 0.05 && !this.tiltingLeft) {
+                        this.mesh.rotation.y += 0.005;
+                        if (this.mesh.rotation.y >= 0.04) {
+                            this.tiltingLeft = true;
+                        }
+                    }
                 }
                 if (this.movement.left) {
                     this.dx = -this.speed;
@@ -193,7 +252,7 @@
                 const m = new THREE.Mesh(e, mat);
                 m.position.set(x, y, z);
                 scene.add(m);
-                this.elements.push({ name: name, mesh: m});
+                this.elements.push({ name: name, mesh: m });
             }
 
             activateCollisions() {
@@ -210,7 +269,7 @@
             }
 
             getElementByName(name) {
-                for (e of elements) {
+                for (e of this.elements) {
                     if (e.name === name) {
                         return e;
                     }
@@ -222,16 +281,19 @@
         building.addElement("wall1", -10, 50, 0, 25, 5, 50, brickMat);
         building.addElement("wall1", 30, 50, 0, 25, 5, 50, brickMat);
         building.addElement("wall1", 10, 50, 35, 65, 5, 20, brickMat);
-        const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(20, 0.5, 50), new THREE.MeshStandardMaterial({ color: 0xFFFF00 }));
+        const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(20, 0.5, 50), new THREE.MeshStandardMaterial({ color: 0x000000 }));
         scene.add(doorMesh);
         doorMesh.position.set(10, 50, 0);
+        const black = new THREE.MeshStandardMaterial({ color: 0x000000 });
 
         building.addElement("wall2", -40, 52, 0, 50, 2, 95, lightBrickMat);
         building.addElement("wall2", 50, 52, 0, 50, 2, 95, lightBrickMat);
         building.addElement("wall3", -60, 127, 0, 2, 150, 95, lightBrickMat);
         building.addElement("wall4", 75, 127, 0, 2, 150, 95, lightBrickMat);
-        building.addElement("wall5", 5, 200, 0, 135++, 2, 95, lightBrickMat);
-
+        building.addElement("wall5", 5, 200, 0, 140, 2, 95, new THREE.MeshStandardMaterial({ color: 0x000000 }));
+        building.addElement("ceiling1", 10, 125, 45, 150, 150, 2, brickMat);
+        building.addElement("floor1", 10, 125, 0.02, 150, 150, 2, new THREE.MeshStandardMaterial({ color: 0x000000 }));
+        building.addElement("counter", 10, 150, 8, 30, 8, 8, black);
 
         document.addEventListener("keydown", (e) => {
             switch (e.key) {
@@ -252,6 +314,9 @@
                     break;
                 case "ArrowRight":
                     player.movement.rotateR = true;
+                    break;
+                case "e":
+                    ePressed = true;
                     break;
 
             }
@@ -277,18 +342,60 @@
                 case "ArrowRight":
                     player.movement.rotateR = false;
                     break;
+                case "e":
+                    ePressed = false;
+                    break;
 
             }
         });
 
+        function handleBackgroundChange(timeInDays) {
+            if (Math.trunc(timeInDays) % 2 == 1) {
+                if (scene.backgroundIntensity > 0) {
+                    scene.backgroundIntensity -= 0.01;
+                    stages.nighttime = true;
+                    stages.daytime = false;
+                } else {
+                    scene.backgroundIntensity = 0;
+                }
+            } else if (Math.trunc(timeInDays) % 2 == 0) {
+                if (scene.backgroundIntensity < 1) {
+                    scene.backgroundIntensity += 0.01;
+                    stages.nighttime = false;
+                    stages.daytime = true;
+                } else {
+                    scene.backgroundIntensity = 1;
+                }
+            }
+        }
         function animate() {
             const delta = clock.getDelta();
             const elapsedTime = clock.getElapsedTime();
-            timeDisp.textContent = "Minutes Passed: "+Math.trunc(elapsedTime);
-            const days = elapsedTime/60;
+            timeDisp.textContent = "Minutes Passed: " + Math.trunc(elapsedTime);
+            const days = elapsedTime / 5;
             daysDisp.textContent = "Hours Passed: " + Math.trunc(days);
+
             player.update();
             building.activateCollisions();
+
+            // random light flickers
+            const rand = Math.random();
+            if (rand > 0.7) {
+                lightBulb1.visible = false;
+            } else if (rand > 0.3) {
+                lightBulb1.visible = true;
+            } else if (rand > 0.1) {
+                lightBulb1.visible = false;
+            }
+            const rand2 = Math.random();
+            if (rand2 > 0.7) {
+                lightBulb2.visible = false;
+            } else if (rand2 > 0.3) {
+                lightBulb2.visible = true;
+            } else if (rand2 > 0.1) {
+                lightBulb2.visible = false;
+            }
+            handleBackgroundChange(days);
 
             requestAnimationFrame(animate);
             renderer.render(scene, camera);
