@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Grocery Entities</title>
+    <style>body{touch-action:none;margin:0;overflow:hidden}canvas{z-index:-10;display:block;position:fixed}@font-face{font-family:ScaryFont;src:url(/assets/HelpMe-DZOtQzXd.ttf)format("truetype");font-weight:400;font-style:normal}#ui{z-index:10;color:#fff;font-family:ScaryFont;font-size:24px;font-weight:bolder;position:absolute;top:10px;left:10px}#file-progress,#label{color:red}#mobile-controls{z-index:20;pointer-events:none;box-sizing:border-box;justify-content:space-between;width:100%;height:150px;padding:0 20px;display:flex;position:absolute;bottom:20px;left:0}.control-group{pointer-events:auto;flex-direction:column;gap:10px;display:flex}.dpad-row{justify-content:center;gap:10px;display:flex}.mob-btn{color:#fff;-webkit-user-select:none;user-select:none;touch-action:manipulation;background:#fff3;border:2px solid #fff;border-radius:50%;outline:none;justify-content:center;align-items:center;width:60px;height:60px;font-family:ScaryFont;font-size:18px;display:flex}.mob-btn:active{background:#ffffff80}</style>
+  <script type="module" crossorigin src="/assets/index-CyJ-p_Q0.js"></script>
+</head>
+
+<body>
+    <div id="ui">
+        <p id="timeDisp">Minutes</p>
+        <p id="daysDisp">Days</p>
+        <label id="label" for="file-progress">Noise Level: </label>
+        <progress id="file-progress" max="100" value="10"></progress>
+    </div>
+    <div id="mobile-controls">
+        <div class="control-group">
+            <div class="dpad-row">
+                <button class="mob-btn" id="btn-forward">W</button>
+            </div>
+            <div class="dpad-row">
+                <button class="mob-btn" id="btn-left">A</button>
+                <button class="mob-btn" id="btn-backward">S</button>
+                <button class="mob-btn" id="btn-right">D</button>
+            </div>
+        </div>
+        <div class="control-group" style="align-items: flex-end;">
+            <div class="dpad-row">
+                <button class="mob-btn" id="btn-rotL">&lt;</button>
+                <button class="mob-btn" id="btn-rotR">&gt;</button>
+            </div>
+            <div class="dpad-row">
+                <button class="mob-btn" id="btn-run">RUN</button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
